@@ -1,0 +1,206 @@
+#importing the required packages
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import lightgbm
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.metrics import roc_auc_score
+import warnings
+# from sklearn.metrics import mean_squared_error,roc_auc_score,precision_score
+warnings.filterwarnings('ignore')
+%matplotlib inline
+
+#reading the kidneyChronic.csv and storing it in df.
+df = pd.read_csv('kidneyChronic.csv')
+#displaying the 1st N rows using head function.
+df.head()
+
+#replacing '?' with 'NaN'
+df = df.replace('?',np.nan)
+df.head()
+
+#displaying the list of columns with its datatypes
+df.dtypes
+
+#Data cleaning 
+#to_replace pattern we are trying to replace with the dataset
+df[['htn','dm','cad','pe','ane']] = df[['htn','dm','cad','pe','ane']].replace(to_replace={'yes':1,'no':0})
+df[['rbc','pc']] = df[['rbc','pc']].replace(to_replace={'abnormal':1,'normal':0})
+df[['pcc','ba']] = df[['pcc','ba']].replace(to_replace={'present':1,'notpresent':0})
+df[['appet']] = df[['appet']].replace(to_replace={'good':1,'poor':0,'no':np.nan})
+df[['dm']] = df[['dm']].replace(to_replace={'\tyes':1,'\tno':0})
+df[['dm']] = df[['dm']].replace(to_replace={' yes':1})
+df[['cad']] = df[['cad']].replace(to_replace={'\tno':0})
+df[['class']] = df[['class']].replace(to_replace={'ckd':1.0,'ckd\t':1.0,'notckd':0.0,'no':0.0})
+
+df.head()
+#displaying data types after data cleaning
+df.dtypes
+#replacing the \t?, \t43 values with nan and 43 respectively
+df.pcv = df.pcv.replace('\t?',np.nan)
+df.pcv = df.pcv.replace('\t43','43')
+values_pcv=df.pcv.values
+#print(values_pcv)
+
+#replacing the \t?, \t6200, \t8400 with nan,6200,8400 respectively
+values_wbcc=df.wbcc.values
+df.wbcc = df.wbcc.replace('\t?',np.nan)
+df.wbcc = df.wbcc.replace('\t6200','6200')
+df.wbcc = df.wbcc.replace('\t8400','8400')
+#print(values_wbcc)
+#replacing the values of \t? with nan
+values_rbcc=df.rbcc.values
+df.rbcc = df.rbcc.replace('\t?',np.nan)
+#print(values_rbcc)
+#importing the csv 
+df.to_csv("df_test.csv", index=False)
+#converting the object datatype to float and for class feature to int type
+df = df.astype('float')
+df['class'] = df['class']. astype('int')
+df.dtypes
+#finfing the count of unique values for each feature.
+for i in df.columns:
+    print(f'{i} : {df[i].nunique()} values')
+#differentiating and storing numnerical and categorical features in list.
+numerical_features = []
+categorical_features = []
+
+#iterating through the columns
+#checking if unique count of feature is greater than 7 then considering it as numerical feature or categorical feature
+#considering nan aswell
+for i in df.columns:
+    if df[i].nunique()>7:
+        numerical_features.append(i)
+    else:
+        categorical_features.append(i)
+ #printing both numerical and categorical features
+print('Numerical features: ', numerical_features)
+print('\nCategorical features: ', categorical_features)
+#getting the unique values for each categorical feature
+for unique_values in categorical_features:
+    print(f'{unique_values} has {df[unique_values].unique()} categories.\n')
+
+#plotting the distribution plot for all numerical features.
+fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(15,15))
+fig.subplots_adjust(hspace=0.5)
+fig.suptitle('Distributions of numerical Features')
+
+for ax, unique_values in zip(axes.flatten(), numerical_features):
+    sns.distplot(a=df[unique_values], ax=ax)
+#plotting the count plot for all categorical features.
+fig, axes = plt.subplots(nrows=5, ncols=3, figsize=(15,15))
+fig.subplots_adjust(hspace=0.5)
+fig.suptitle('Distributions of categorical Features')
+
+
+for ax, unique_values in zip(axes.flatten(), categorical_features):
+    sns.countplot(df[unique_values], ax=ax)
+#finding the mean/mode of all features and filling the values nan with mean/mode : Imputation using mean/mode
+
+#imputation using mean for numerical features
+
+df.age.fillna(value=df.age.mean(),inplace=True)
+df.bp.fillna(value=df.bp.mean(),inplace=True)
+df.bgr.fillna(value=df.bgr.mean(),inplace=True)
+df.bu.fillna(value=df.bu.mean(),inplace=True)
+df.sc.fillna(value=df.sc.mean(),inplace=True)
+df.sod.fillna(value=df.sod.mean(),inplace=True)
+df.pot.fillna(value=df.pot.mean(),inplace=True)
+df.hemo.fillna(value=df.hemo.mean(),inplace=True)
+df.pcv.fillna(value=df.pcv.mean(),inplace=True)
+df.wbcc.fillna(value=df.wbcc.mean(),inplace=True)
+df.rbcc.fillna(value=df.rbcc.mean(),inplace=True)
+
+#imputation using mode for categorical features
+
+df.sg.fillna(df.sg.mode()[0],inplace=True)
+df.al.fillna(df.al.mode()[0],inplace=True)
+df.su.fillna(df.su.mode()[0],inplace=True)
+df.rbc.fillna(df.rbc.mode()[0],inplace=True)
+df.pc.fillna(df.pc.mode()[0],inplace=True)
+df.pcc.fillna(df.pcc.mode()[0],inplace=True)
+df.ba.fillna(df.ba.mode()[0],inplace=True)
+df.htn.fillna(df.htn.mode()[0],inplace=True)
+df.dm.fillna(df.dm.mode()[0],inplace=True)
+df.cad.fillna(df.cad.mode()[0],inplace=True)
+df.appet.fillna(df.appet.mode()[0],inplace=True)
+df.pe.fillna(df.pe.mode()[0],inplace=True)
+df.ane.fillna(df.ane.mode()[0],inplace=True)
+
+#checking the values after imputation
+df.head()
+#checking the file after replacing NaN with mean value. record count : 400
+df.to_csv("df_test.csv", index=False)
+#dropping the duplicate records
+df = df.drop_duplicates()
+#taking the count of values of class feature : whether it is ckd or not
+df['class'].value_counts()
+#plotting correlation. 
+corr_df = df.corr()
+
+# Generate a mask for the upper triangle
+mask = np.zeros_like(corr_df, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+
+# Set up the matplotlib figure
+f, ax = plt.subplots(figsize=(11, 9))
+
+# Generate a custom diverging colormap
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+
+# Draw the heatmap with the mask and correct aspect ratio
+sns.heatmap(corr_df, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5})
+plt.title('Correlations between different predictors')
+plt.show()
+#displaying the pairwise correlation of all columns in the dataframe. 
+corr_df
+#With sklearn.model_selection.train_test_split you are creating 4 portions of data which will be used for fitting & predicting values.
+#X_train, X_test, y_train, y_test
+
+X_train,X_test,y_train,y_test = train_test_split(df.iloc[:,:-1], df['class'], test_size = 0.33, random_state=44,stratify= df['class'] )
+
+#using lightgbm
+# X_train,X_test,y_train,y_test=train_test_split(X,Y,test_size=0.3,random_state=0)
+#converting the dataset into proper LGB format 
+d_train=lightgbm.Dataset(X_train, label=y_train)
+#Specifying the parameter
+params={}
+params['learning_rate']=0.03
+params['boosting_type']='gbdt' #GradientBoostingDecisionTree
+params['objective']='binary' #Binary target feature
+params['metric']='binary_logloss' #metric for binary classification
+params['max_depth']=10
+#train the model 
+clf=lightgbm.train(params,d_train,100) #train the model on 100 epocs
+#prediction on the test set
+y_pred=clf.predict(X_test)
+
+# if>=0.5 ---> 1
+# else ---->0
+#rounding the values
+y_pred=y_pred.round(0)
+#converting from float to integer
+y_pred=y_pred.astype(int)
+#roc_auc_score metric
+print ('roc_auc_score : ',roc_auc_score(y_pred,y_test))
+confusion = confusion_matrix(y_test, y_pred)
+print('confusion matrix : \n',confusion)
+#0.9772727
+
+roc_auc_score :  0.9777477255962627
+confusion matrix : 
+ [[48  2]
+ [ 1 81]]
+
+TP= confusion[0][0]
+TN= confusion[1][1]
+FP= confusion[0][1]
+FN= confusion[1][0]
+
+accuracy = (TP+TN)/(TP+TN+FP+FN)
+
+print("Accuracy of the model : ",accuracy)
+Accuracy of the model :  0.9772727272727273
